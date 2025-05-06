@@ -8,163 +8,151 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
-class Network(nn.Module):
 
-    """Predicts the probability that the player playing white is going to win."""
-    
+class Network(nn.Module):
+    """Simple feedforward network estimating win-probability for White."""
     def __init__(self):
         super(Network, self).__init__()
-        self.x_layer = nn.Sequential(nn.Linear(198, 50), nn.Sigmoid())
-        self.y_layer = nn.Sequential(nn.Linear(50, 1), nn.Sigmoid())
+        # 198-dimensional input → 50 hidden units → 1 output
+        self.x_layer = nn.Sequential(
+            nn.Linear(198, 50),
+            nn.Sigmoid()
+        )
+        self.y_layer = nn.Sequential(
+            nn.Linear(50, 1),
+            nn.Sigmoid()
+        )
 
     def forward(self, state):
-        
+        # Pass state through network to get win probability
         xh = self.x_layer(state)
         win_probability = self.y_layer(xh)
-        
         return win_probability
-    
+
 
 class TD_BG_Agent:
-    
+    """Temporal-Difference learning agent for backgammon."""
     def __init__(self, env, player, network):
-        
         self.env = env
-        self.player = player
-        self.network = network
-        self.elig_traces = None
-        self.lamda = 0.7
-        self.learning_rate = 0.1
-        self.gamma = 0.99
-        
-    def roll_dice(self):
-        
-        #This may need to be swapped around.
-        return (-random.randint(1, 6), -random.randint(1, 6)) if self.player == WHITE\
-               else (random.randint(1, 6), random.randint(1, 6))
-        
-    
-    def best_action(self, roll):
+        self.player = player               # WHITE or BLACK
+        self.network = network             # evaluation network
+        self.elig_traces = None            # eligibility traces for weights
+        self.lamda = 0.7                   # trace decay
+        self.learning_rate = 0.1           # step size
+        self.gamma = 0.99                  # discount factor
 
-        """Choose best action"""
-        
+    def roll_dice(self):
+        """Roll two dice; use negative values for White to match env convention."""
+        if self.player == WHITE:
+            return (-random.randint(1,6), -random.randint(1,6))
+        else:
+            return ( random.randint(1,6),  random.randint(1,6))
+
+    def best_action(self, roll):
+        """Evaluate all legal actions for `roll` and choose the best one."""
         actions = list(self.env.get_valid_actions(roll))
-        
         values = []
-        
-        current_state = self.env.game.save_state()
-        
+        current_state = self.env.game.save_state()  # snapshot current board
+
         for a in actions:
-            
-            #Take action a
+            # simulate action
             next_state, reward, terminal, winner = self.env.step(a)
-            
-            #figure this out with
+            # evaluate resulting state
             val = self.network(torch.Tensor(next_state))
-            
             values.append(val)
-            
-            #Go back to where you currently are.
+            # restore board to before action
             self.env.game.restore_state(current_state)
 
+        # extract scores and select argmax for White, argmin for Black
         scores = [v.detach().cpu().item() for v in values]
-        # select index
-        idx = int(np.argmax(scores)) if self.player == 0 else int(np.argmin(scores))
+        if self.player == WHITE:
+            idx = int(np.argmax(scores))
+        else:
+            idx = int(np.argmin(scores))
         return actions[idx]
-    
+
     def update(self, current_prob, future_prob, reward):
-        
+        """
+        Perform TD(λ) update on network weights, using
+        δ = r + γ·V(next) - V(current).
+        """
+        # Zero gradients and backprop current_prob to fill .grad
         self.network.zero_grad()
         current_prob.backward()
-        
+
         delta_t = reward + self.gamma * future_prob - current_prob
-        
+        # Update weights manually using eligibility traces
         with torch.no_grad():
-        
             for i, weights in enumerate(self.network.parameters()):
-                
-                self.elig_traces[i] = self.gamma * self.lamda * self.elig_traces[i] + weights.grad
-                new_weights = weights + self.learning_rate * delta_t * self.elig_traces[i]
-
-                weights.copy_(new_weights)
-        
+                # update eligibility trace
+                self.elig_traces[i] = (
+                    self.gamma * self.lamda * self.elig_traces[i]
+                    + weights.grad
+                )
+                # apply weight update
+                new_w = weights + self.learning_rate * delta_t * self.elig_traces[i]
+                weights.copy_(new_w)
         return delta_t
-    
-    
-def train(agent_white, agent_black, env, n_episodes=1, max_time_steps=3000):
 
-    """Trains two agents which compete against one another to make a
-    model perfect at backgammon."""
-    
+
+def train(agent_white, agent_black, env, n_episodes=1, max_time_steps=3000):
+    """
+    Train two TD agents (White vs Black) by self-play.
+    Returns a list of TD errors (losses) per completed game.
+    """
     losses = []
-    agents = {WHITE : agent_white, BLACK : agent_black}
-    agent_wins = {WHITE : 0, BLACK : 0}
-    
+    agents = {WHITE: agent_white, BLACK: agent_black}
+    wins   = {WHITE: 0, BLACK: 0}
+
     for episode in range(n_episodes):
-        
-        #Reset the environment, choose randomly who goes first
+        # reset env, pick starting player and roll
         agent_colour, roll, state = env.reset()
         agent = agents[agent_colour]
 
-        #reset the eligibility traces...
-        agent_white.elig_traces = [torch.zeros(weights.shape, requires_grad=False)\
-                        for weights in list(agent_white.network.parameters())]
-        agent_black.elig_traces = [torch.zeros(weights.shape, requires_grad=False)\
-                        for weights in list(agent_black.network.parameters())]
-        
-#         if episode % 10000 == 0:
-#             agent_white.learning_rate = agent_white.learning_rate * 0.7
-#             agent_black.learning_rate = agent_black.learning_rate * 0.7
-        
-        for i in range(max_time_steps):
-            
-            if i == 0:
-                pass
-            else: 
+        # reset eligibility traces for both agents
+        for ag in (agent_white, agent_black):
+            ag.elig_traces = [torch.zeros(p.shape, requires_grad=False)
+                              for p in ag.network.parameters()]
+
+        # play up to max_time_steps moves
+        for t in range(max_time_steps):
+            # on first move, use initial roll; afterwards roll dice
+            if t > 0:
                 roll = agent.roll_dice()
-                
-            
+
             current_prob = agent.network(torch.Tensor(state))
-            
-            actions = env.get_valid_actions(roll)
-            
-            if len(actions) == 0:
-                
+            valid_actions = env.get_valid_actions(roll)
+
+            if not valid_actions:
+                # no move: switch player and continue
                 agent_colour = env.get_opponent_agent()
                 agent = agents[agent_colour]
-                
                 continue
-            
-            best_action = agent.best_action(roll)
-            next_state, reward, terminal, winner = env.step(best_action)
-            
+
+            # choose and apply best action
+            best_act = agent.best_action(roll)
+            next_state, reward, terminal, winner = env.step(best_act)
             future_prob = agent.network(torch.Tensor(next_state))
-            
+
+            # terminal update
             if terminal and winner is not None:
-                
-                if winner == 1:
+                # reward sign normalization for Black win
+                if winner == BLACK:
                     reward = -1
-                    
                 loss = agent.update(current_prob, future_prob, reward)
-                losses.append(loss / i)
+                losses.append(loss / (t+1))
+                wins[winner] += 1
 
-                agent_wins[winner] += 1
-
-                wwp = 100 * (agent_wins[WHITE] / (agent_wins[WHITE] + agent_wins[BLACK]))
-                bwp = 100 - wwp
-
-
-                print('Episode : {} | Winner : {} | Num White Wins : {} | Num of Black Wins : {} | White Win Percentage : {:.2f} | Black Win Percentage : {:.2f}'\
-                 .format(episode, agent.player, agent_wins[WHITE], agent_wins[BLACK],\
-                        wwp, bwp))
+                # print progress
+                total = wins[WHITE] + wins[BLACK]
+                w_pct = 100 * wins[WHITE] / total
+                print(f"Episode {episode}: winner={winner}, W%={w_pct:.2f}")
                 break
-                
-            else:
-                loss = agent.update(current_prob, future_prob, reward)
-            
+
+            # non-terminal update and switch player
+            agent.update(current_prob, future_prob, reward)
             agent_colour = env.get_opponent_agent()
             agent = agents[agent_colour]
-            
             state = next_state
-            
+
     return losses
