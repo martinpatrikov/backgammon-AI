@@ -1,35 +1,36 @@
 # backgammon-AI
 
-In this repository, an application has been made so you can play against yourself or a friend or an AI on the command line.
+A command-line implementation of backgammon that lets you play against yourself, a friend, or an AI opponent.
 
-# Prerequisites
+## Prerequisites
 
-This implementation assumes that you already have anaconda installed on your system. 
+You’ll need an Anaconda installation available on your machine.
 
-## gym-backgammon
+### Installing the gym-backgammon Environment
 
-The [gym-backgammon](https://github.com/dellalibera/gym-backgammon) environment is used to train the reinforcement learning agent. I also use it to render the game.
+This project uses the [gym-backgammon](https://github.com/dellalibera/gym-backgammon) package both to train the reinforcement-learning agent and to render the board. To add it to your setup:
 
-To install the environment run:
-
-```
+```bash
 git clone https://github.com/dellalibera/gym-backgammon.git
 cd gym-backgammon/
 pip3 install -e .
 ```
-You will also need [Pytorch](https://github.com/pytorch/pytorch):
 
-```
+You’ll also require PyTorch:
+
+```bash
 pip install torch torchvision
 ```
-# Play the Game
 
-To start a game run the script play.py with tag -begin:
+## Launching a Game
 
-```
+Start a new session by running:
+
+```bash
 python play.py -begin
 ```
-This should display an ascii-art representation of a backgammon board.
+
+An ASCII representation of the backgammon board will appear, for example:
 
 ```
 | 12 | 13 | 14 | 15 | 16 | 17 | BAR | 18 | 19 | 20 | 21 | 22 | 23 | OFF |
@@ -49,150 +50,88 @@ This should display an ascii-art representation of a backgammon board.
 | 11 | 10 |  9 |  8 |  7 |  6 | BAR |  5 |  4 |  3 |  2 |  1 |  0 | OFF |
 ```
 
-You can choose to play against another person using only human moves. Alternatively you can play against an AI.
+You may choose to alternate turns with another human or hand control over to the AI.
 
-## Human Move
+## Human Moves
 
-If you dont have any dice to hand you can roll some virtual dice:
+If you need dice rolls, generate them with:
 
-```
+```bash
 python roll_dice.py
 ```
 
-To play a move of your choosing run:
+To submit your own move(s), use:
 
+```bash
+python play.py -human <source> <destination> [<source2> <destination2> …]
 ```
-python play -human (source) (destination)
-```
 
-*source* : The number representing where the piece is on the board.
-
-*destination* : The number representing where you want that piece to move to.
+- `<source>`: the point your checker starts on  
+- `<destination>`: where you want to move it  
 
 ### Example
 
-Let's say I roll a 6 1 and I am moving the X pieces.
+You roll a 6 and a 1 as player X and wish to move from point 12 to 6, then point 7 to 6:
 
-The desired board position I want is:
-
-```
-| 12 | 13 | 14 | 15 | 16 | 17 | BAR | 18 | 19 | 20 | 21 | 22 | 23 | OFF |
-|--------Outer Board----------|     |-------P=O Home Board--------|     |
-|  X |    |    |    |  O |    |     |  O |    |    |    |    |  X |     |
-|  X |    |    |    |  O |    |     |  O |    |    |    |    |  X |     |
-|  X |    |    |    |  O |    |     |  O |    |    |    |    |    |     |
-|  X |    |    |    |    |    |     |  O |    |    |    |    |    |     |
-|    |    |    |    |    |    |     |  O |    |    |    |    |    |     |
-|-----------------------------|     |-----------------------------|     |
-|  O |    |    |    |    |    |     |  X |    |    |    |    |    |     |
-|  O |    |    |    |    |    |     |  X |    |    |    |    |    |     |
-|  O |    |    |    |    |    |     |  X |    |    |    |    |    |     |
-|  O |    |    |    |  X |  X |     |  X |    |    |    |    |  O |     |
-|  O |    |    |    |  X |  X |     |  X |    |    |    |    |  O |     |
-|--------Outer Board----------|     |-------P=X Home Board--------|     |
-| 11 | 10 |  9 |  8 |  7 |  6 | BAR |  5 |  4 |  3 |  2 |  1 |  0 | OFF |
-```
-
-I would run:
-
-```
+```bash
 python play.py -human 12 6 7 6
 ```
 
-If I rolled 6 6, I have 4 moves so I would run:
+If you roll doubles (e.g. 6 6), enter four moves:
 
-```
+```bash
 python play.py -human 12 6 12 6 23 17 23 17
 ```
 
-This would give me the board:
+## Entering Moves from the Bar
 
-```
-| 12 | 13 | 14 | 15 | 16 | 17 | BAR | 18 | 19 | 20 | 21 | 22 | 23 | OFF |
-|--------Outer Board----------|     |-------P=O Home Board--------|     |
-|  X |    |    |    |  O |  X |     |  O |    |    |    |    |    |     |
-|  X |    |    |    |  O |  X |     |  O |    |    |    |    |    |     |
-|  X |    |    |    |  O |    |     |  O |    |    |    |    |    |     |
-|    |    |    |    |    |    |     |  O |    |    |    |    |    |     |
-|    |    |    |    |    |    |     |  O |    |    |    |    |    |     |
-|-----------------------------|     |-----------------------------|     |
-|  O |    |    |    |    |    |     |  X |    |    |    |    |    |     |
-|  O |    |    |    |    |    |     |  X |    |    |    |    |    |     |
-|  O |    |    |    |  X |    |     |  X |    |    |    |    |    |     |
-|  O |    |    |    |  X |  X |     |  X |    |    |    |    |  O |     |
-|  O |    |    |    |  X |  X |     |  X |    |    |    |    |  O |     |
-|--------Outer Board----------|     |-------P=X Home Board--------|     |
-| 11 | 10 |  9 |  8 |  7 |  6 | BAR |  5 |  4 |  3 |  2 |  1 |  0 | OFF |
-```
+Captured checkers sit on the bar; to re-enter them, use `bar` as the source:
 
-There is no contraint on the number of pieces I can move in 1 turn.
-
-## Moving a piece which has been taken.
-
-To move a piece which is on the bar after being taken, we denote the source to be *bar*.
-
-### Example
-
-Say if you are player X and had 2 pieces on the bar and had rolled a 1 4:
-
-```
+```bash
 python play.py -human bar 23 bar 20
 ```
 
-## Moving a piece off the board
+*(This example places two X checkers back into play on rolls of 1 and 4.)*
 
-At the ending stage of a game when all your pieces are home, to take the pieces off the board the destination is:
+## Bearing Off
 
-X home board : -1 
+Once all your checkers are in your home quadrant, remove them with destination codes:
 
-O home board : 24
+- **X** pieces: `-1`  
+- **O** pieces: `24`  
 
-### Example
-
-If you are player X and rolled a 6 and 4:
-
-```
-python play.py -human 5 -1 3 -1
+```bash
+python play.py -human 5 -1 3 -1   # X bearing off on rolls 6 and 4
+python play.py -human 18 24 20 24 # O bearing off on rolls 6 and 4
 ```
 
-If you are player O and rolled a 6 and 4:
+## Skipping a Turn
 
-```
-python play.py -human 18 24 20 24
-```
+If your dice roll leaves you with no legal moves (and it’s your turn):
 
-## When you can't make a move
-
-If you roll a dice which results in you being unable to make a move run (not needed if it is the AI's turn):
-
-```
+```bash
 python play.py -skip
 ```
 
-## AI move
+## Letting the AI Play
 
-If you would like to let the AI make what it thinks the best move is given a roll:
+Hand control to the AI by supplying your roll:
 
+```bash
+python play.py -ai <die1> <die2>
 ```
-python play.py -ai (roll)
-```
 
-*roll* : The roll you want the AI to make a play with.
+For instance, on a 1 and 6:
 
-### Example
-
-If you rolled a 1 6 you would run:
-
-```
+```bash
 python play.py -ai 1 6
 ```
 
-Running this automatically updates the board with the move the AI chose. 
+The AI will choose and display its optimal move(s).  
+*Note:* if you roll doubles, you still only pass two numbers; the AI will execute four moves automatically. If the roll is unplayable, the AI will correctly detect and skip.
 
-**Note**
- - If you roll a double you **do not** need to input 4 dice numbers. The AI will automatically make 4 moves if a double is rolled.
- - If you roll a dice that you know the AI cant make a move on. Still input this roll and the AI will recognise it cannot make a move.
+---
 
-# AI
+## How the AI Was Trained
 
-The AI played 200,000 games against itself to learn a model capable of playing a good game of backgammon. The AI used a reinforcement learning algorithm to train the network.
+The agent improved by playing 200,000 self-play games using a reinforcement-learning approach, resulting in a model capable of challenging human opponents.
