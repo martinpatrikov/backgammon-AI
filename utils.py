@@ -9,8 +9,8 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 
 class Network(nn.Module):
-    
-    '''Predicts the probabilty that the player playing white is going to win.'''
+
+    """Predicts the probability that the player playing white is going to win."""
     
     def __init__(self):
         super(Network, self).__init__()
@@ -45,8 +45,8 @@ class TD_BG_Agent:
         
     
     def best_action(self, roll):
-        
-        '''Choose best action'''
+
+        """Choose best action"""
         
         actions = list(self.env.get_valid_actions(roll))
         
@@ -66,12 +66,7 @@ class TD_BG_Agent:
             
             #Go back to where you currently are.
             self.env.game.restore_state(current_state)
-        
-        #This has been changed...
-        # idx = int(np.argmax(values)) if self.player == 0 else int(np.argmin(values))
-        #
-        # return actions[idx]
-        #
+
         scores = [v.detach().cpu().item() for v in values]
         # select index
         idx = int(np.argmax(scores)) if self.player == 0 else int(np.argmin(scores))
@@ -97,9 +92,9 @@ class TD_BG_Agent:
     
     
 def train(agent_white, agent_black, env, n_episodes=1, max_time_steps=3000):
-    
-    '''Trains two agents which compete against one another to make a
-    model really good at backgammon.'''
+
+    """Trains two agents which compete against one another to make a
+    model perfect at backgammon."""
     
     losses = []
     agents = {WHITE : agent_white, BLACK : agent_black}
